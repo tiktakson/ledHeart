@@ -14,9 +14,13 @@ const int button3_pin = 4;
 const int button4_pin = 13;
 
 
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
+const char* ssid = "";
+const char* password = "";
 
+String telnetBuffer = "";
+
+WiFiServer telnetServer(23); //telnet server on port 23
+WiFiClient telnetClient;
 
 OneButton button1(
   button1_pin,  // Input pin for the button
@@ -82,9 +86,15 @@ void setup() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
-  Serial.println("Ready");
+  Serial.println("Ready for update");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+
+  telnetServer.begin();
+  telnetServer.setNoDelay(true); 
+  Serial.println("Telnet server started on port 23");
+
 
   button1.attachClick(Click1);
   button2.attachClick(Click2);
@@ -94,24 +104,95 @@ void setup() {
 
 }
 
+  void TelnetPrint(String text) {
+  text = text + "\r\n" ;
+  Serial.print(text); // alway in ph port
+  if (telnetClient && telnetClient.connected()) {
+    telnetClient.print(text); // to the air
+  }
+}
+
+
 void loop() {
 
   ArduinoOTA.handle();
 
+  if (telnetServer.hasClient()) {
+    if (!telnetClient || !telnetClient.connected()) { 
+      if (telnetClient) telnetClient.stop(); 
+      telnetClient = telnetServer.available(); 
+      
+      Serial.println("New telnet client ");
+      telnetClient.println("=== connected to telnet ===");
+    } else {
+      // refuse to connect with other clients
+      WiFiClient extraClient = telnetServer.available();
+      extraClient.stop();
+    }
+  }
+  
+  // telnet -> serial
+  if (telnetClient && telnetClient.connected() && telnetClient.available()) {
+    while (telnetClient.available()) {
+      // Serial.write(telnetClient.read());
+      char c = telnetClient.read();
+      Serial.write(c);
+      if (c == '\n' || c == '\r'){
+        telnetBuffer.trim();    
+      if (telnetBuffer.length() > 0){
+        if (telnetBuffer == "hello") {
+            TelnetPrint("hello from esp8266 too\r\n");
+            } 
+            
+        if (telnetBuffer == "time") {
+            String msg = "Uptime: " + String(millis() /1000 ) + " seconds ";
+              TelnetPrint(msg);    
+            }
+                                  
+          telnetBuffer = "";                                
+          }
+        }
+      else{ 
+        telnetBuffer += c;
+        }                                      
+                                
+          
+        }
+    }
+  
+
+    // serial -> telnet 
+if (Serial.available()) {
+  size_t len = Serial.available();
+  uint8_t sbuf[len];
+  Serial.readBytes(sbuf, len);
+  
+  if (telnetClient && telnetClient.connected()) {
+    telnetClient.write(sbuf, len);
+  }
 }
 
+  button1.tick();
+  button2.tick(); 
+  button3.tick();
+  button4.tick();
+
+
+                                  
+  }
+
   void Click1() {
-    Serial.printf("first button clicked");
+    TelnetPrint("first button clicked");
 }
 
   void Click2() {
-    Serial.printf("second button clicked");
+    TelnetPrint("second button clicked");
 }
 
   void Click3() {
-    Serial.printf("third button clicked");
+    TelnetPrint("third button clicked");
 }
 
   void Click4() {
-    Serial.printf("fourth button clicked");
+    TelnetPrint("fourth button clicked");
 }
