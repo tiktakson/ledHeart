@@ -1,4 +1,10 @@
 
+
+#include <Adafruit_NeoPixel.h>
+
+#define LED_PIN   12
+#define LED_COUNT 10
+
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
@@ -13,11 +19,16 @@ const int button2_pin = 5;
 const int button3_pin = 4;
 const int button4_pin = 13;
 
+int mode = 0 ;
 
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "3.16";
+const char* password = "printer2hrn";
 
 String telnetBuffer = "";
+
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ800);
+
+bool ledUpdate = false;
 
 WiFiServer telnetServer(23); //telnet server on port 23
 WiFiClient telnetClient;
@@ -50,6 +61,8 @@ void setup() {
 
   Serial.begin(115200);
   Serial.println("Booting");
+
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   
@@ -95,6 +108,9 @@ void setup() {
   telnetServer.setNoDelay(true); 
   Serial.println("Telnet server started on port 23");
 
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+
 
   button1.attachClick(Click1);
   button2.attachClick(Click2);
@@ -102,14 +118,16 @@ void setup() {
   button4.attachClick(Click4);
 
 
+
+
 }
 
   void TelnetPrint(String text) {
-  text = text + "\r\n" ;
   Serial.print(text); // alway in ph port
   if (telnetClient && telnetClient.connected()) {
-    telnetClient.print(text); // to the air
+    telnetClient.println(text); // to the air
   }
+
 }
 
 
@@ -148,7 +166,19 @@ void loop() {
             String msg = "Uptime: " + String(millis() /1000 ) + " seconds ";
               TelnetPrint(msg);    
             }
-                                  
+        if (telnetBuffer == "c1") {
+            Click1();
+            }
+        if (telnetBuffer == "c2") {
+            Click2();
+            }
+        if (telnetBuffer == "c3") {
+            Click3();
+            }
+        if (telnetBuffer == "c4") {
+            Click4();
+            }        
+
           telnetBuffer = "";                                
           }
         }
@@ -162,31 +192,75 @@ void loop() {
   
 
     // serial -> telnet 
-if (Serial.available()) {
-  size_t len = Serial.available();
-  uint8_t sbuf[len];
-  Serial.readBytes(sbuf, len);
+while (Serial.available()) {
+      char c = Serial.read();
+      if (telnetClient && telnetClient.connected()) {
+        telnetClient.write(c);
+      }
+    }
+
+  if(ledUpdate == true){
+    switch(mode){
+      case 0:
+        strip.fill(strip.Color(50, 0, 0));
+        break;
+    
+      case 1:
+        strip.fill(strip.Color(0, 50, 0));
+        break;
+
+      case 2:
+        strip.fill(strip.Color(50, 0, 50));
+        break;
+
+      case 3:
+        strip.fill(strip.Color(50, 25, 0));
+        break;
+    }
   
-  if (telnetClient && telnetClient.connected()) {
-    telnetClient.write(sbuf, len);
+    strip.show() ;
+    ledUpdate = false; 
   }
-}
+
 
   button1.tick();
   button2.tick(); 
   button3.tick();
   button4.tick();
 
-
+  delay(1);
                                   
   }
 
   void Click1() {
-    TelnetPrint("first button clicked");
+    TelnetPrint("first button clicked, mode ++");
+    if(mode >= 3){
+      mode = 3;
+      TelnetPrint("!there is no more modes");
+    }
+   else{
+    mode ++; 
+    ledUpdate = true;
+   }
+   String msg = "now is mode: " + String(mode);
+   TelnetPrint(msg);
+
 }
 
+
   void Click2() {
-    TelnetPrint("second button clicked");
+    TelnetPrint("second button clicked, mode -- ");
+    if(mode <= 0){
+      mode = 0;
+      TelnetPrint("!mode is already lowest");
+    }
+    else{
+      mode -- ;
+      ledUpdate = true;
+    }
+   String msg = "now is mode: " + String(mode);
+   TelnetPrint(msg);
+
 }
 
   void Click3() {
