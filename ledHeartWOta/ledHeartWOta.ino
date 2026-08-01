@@ -26,6 +26,8 @@ const char* password = "printer2hrn";
 
 String telnetBuffer = "";
 
+int ColorTransTime = 20;
+
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ800);
 
 bool ledUpdate = false;
@@ -158,10 +160,7 @@ void loop() {
       if (c == '\n' || c == '\r'){
         telnetBuffer.trim();    
       if (telnetBuffer.length() > 0){
-        if (telnetBuffer == "hello") {
-            TelnetPrint("hello from esp8266 too\r\n");
-            } 
-            
+      
         if (telnetBuffer == "time") {
             String msg = "Uptime: " + String(millis() /1000 ) + " seconds ";
               TelnetPrint(msg);    
@@ -178,6 +177,10 @@ void loop() {
         if (telnetBuffer == "c4") {
             Click4();
             }        
+        if (telnetBuffer == "mode") {
+            String msg = "current mode: " + String(mode);
+            TelnetPrint(msg);
+            }
 
           telnetBuffer = "";                                
           }
@@ -214,14 +217,21 @@ while (Serial.available()) {
         break;
 
       case 3:
-        strip.fill(strip.Color(50, 25, 0));
+        RandomColorOne();
         break;
     }
-  
+
     strip.show() ;
     ledUpdate = false; 
   }
+  
+  if(mode == 3){
+    RandomColorOne();
+  }
 
+  if(mode == 4){
+    ColorTransfusion();
+  }
 
   button1.tick();
   button2.tick(); 
@@ -231,6 +241,40 @@ while (Serial.available()) {
   delay(1);
                                   
   }
+
+  void RandomColorOne(){
+    static uint32_t lastTime = millis(); 
+    for(i = 0; i < LED_COUNT ; i ++){
+    if(millis() - lastTime > 300){
+      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV((uint16_t)ESP.random()))); //random full bright corrected color for i led
+      time = millis();
+      strip.show() ;
+      } 
+    } 
+  }
+  
+  void ColorTransfusion(){
+  static uint32_t lastTime = millis();
+  static uint16_t baseColor = 0;
+  
+  if(millis() - lastTime > ColorTransTime){
+
+    for( int i = 0; i < LED_COUNT ; i ++){
+      uint16_t hue = baseColor + (i * 65535L / LED_COUNT); 
+      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(hue)); 
+    } 
+  }
+    strip.show();
+    baseColor += 100;
+    lastTime = millis();
+  }
+  
+
+  
+
+  
+
+
 
   void Click1() {
     TelnetPrint("first button clicked, mode ++");
@@ -264,9 +308,15 @@ while (Serial.available()) {
 }
 
   void Click3() {
+    if(mode == 4){
+      ColorTransTime += 5;
+    }
     TelnetPrint("third button clicked");
 }
 
   void Click4() {
+    if(mode == 4){
+      ColorTransTime -= 5;
+    }
     TelnetPrint("fourth button clicked");
 }
