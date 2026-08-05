@@ -21,7 +21,15 @@ const int button2_pin = 5;
 const int button3_pin = 4;
 const int button4_pin = 13;
 
+const int bzz_pin = 0;
+
+unsigned long bzzStartTime;
+unsigned long bzzWorkTime; 
+bool bzz_status = 0;
+
 int mode = 0;
+
+bool bzzStatus = false;
 
 const char* ssid = "Epson L3150";
 const char* password = "12345678";
@@ -275,6 +283,8 @@ void loop() {
   button3.tick();
   button4.tick();
 
+  bzzCheck();
+
   delay(1);
 }
 
@@ -390,7 +400,8 @@ void comet() {
     for (int i = 0; i < LED_COUNT; i++) {
 
       int distance = (lastLed - i + LED_COUNT) % LED_COUNT;
-      int brightness = 255 - ((distance * (255 / LED_COUNT)) - (255 -  globalBrightness)) ;
+      int brightness = 255 - (distance * (255 / LED_COUNT)) - (255 - globalBrightness)  ;
+      TelnetPrint(String(brightness));
       if (brightness < 0) { brightness = 0; }
 
       strip.setPixelColor(i, strip.ColorHSV(62622, 242, brightness));
@@ -406,8 +417,8 @@ void liquidPlasma() {
     return;
   }
   static uint32_t lastTime = 0;
-  static uint8_t wavePhase = 0;  // Фаза хвилі (від 0 до 255)
-  static uint16_t baseHue = 0;   // Базовий колір всієї стрічки
+  static uint8_t wavePhase = 0;  
+  static uint16_t baseHue = 0;   
 
   if (millis() - lastTime > ColorTransTime) {
 
@@ -472,6 +483,31 @@ int8_t randomRGBBrightCorrected() {
 }
 
 
+void bzzSet(int power, int time){
+  if(bzzStatus == 1 ){
+    return;
+  } 
+  bzzWorkTime = time;
+  bzzStartTime = millis();
+  bzzStatus = 1;
+  analogWrite(bzzPin, power);
+  TelnetPrint("motor started"); 
+} 
+
+void bzzCheck(){
+  if(bzzStatus){
+    if(millis() - bzzStartTime >= bzzWorkTime){
+      analogWrite(bzzPin, 0);
+      TelnetPrint("motor stopped");
+      bzzStatus = 0;
+
+    }
+
+  }
+  else{
+    return;
+  }
+}
 
 
 void Click1() {
