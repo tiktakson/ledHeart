@@ -1,0 +1,8 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "ws9823") (type "KiCad") (uri "/home/anotn1/Downloads/ws9823.pretty") (options "") (descr ""))
+	(lib (name "9823footprint") (type "KiCad") (uri "${KIPRJMOD}/9823footprint.pretty") (options "") (descr ""))
+	(lib (name "9823n") (type "KiCad") (uri "${KIPRJMOD}/9823n.pretty") (options "") (descr ""))
+	(lib (name "cat") (type "KiCad") (uri "${KIPRJMOD}/cat.pretty") (options "") (descr ""))
+	(lib (name "cat") (type "KiCad") (uri "${KIPRJMOD}/cat.pretty") (options "") (descr ""))
+)
