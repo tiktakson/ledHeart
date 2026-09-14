@@ -141,7 +141,7 @@ void setup() {
   Serial.println("Telnet server started on port 23");
 
   strip.begin();
-  strip.show();  // Initialize all pixels to 'off'
+  safeStripShow();  // Initialize all pixels to 'off'
 
 
   button1.attachClick(Click1);
@@ -270,7 +270,7 @@ bool commandReceived = false;
         break;
     }
 
-    strip.show();
+    safeStripShow();
     ledUpdate = false;
   }
 
@@ -325,7 +325,7 @@ void RandomColorOne() {
 
       strip.setPixelColor(i, strip.gamma32(strip.ColorHSV((uint16_t)ESP.random(), 255, globalBrightness)));  //random full bright corrected color for i led
     }
-    strip.show();
+    safeStripShow();
     lastTime = millis();
   }
 }
@@ -345,7 +345,7 @@ void ColorTransfusion() {
       uint16_t hue = baseColor + (i * 65535L / LED_COUNT);
       strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(hue, 255, globalBrightness)));
     }
-    strip.show();
+    safeStripShow();
     baseColor += 100;
     lastTime = millis();
   }
@@ -368,7 +368,7 @@ void pinkBlinking() {
         strip.setPixelColor(i, 0);  //dark
       }
     }
-    strip.show();
+    safeStripShow();
     evenOrOdd = !evenOrOdd;
     lastTime = millis();
   }
@@ -383,7 +383,7 @@ void randomBlinking() {
   if (millis() - lastTime > ColorTransTime) {
     strip.fill(strip.Color((uint8_t)ESP.random(), (uint8_t)ESP.random(), (uint8_t)ESP.random()));
     lastTime = millis();
-    strip.show();
+    safeStripShow();
   }
 }
 
@@ -405,7 +405,7 @@ void grainOfRice() {
 
     lastLed = (lastLed + 1) % LED_COUNT;
 
-    strip.show();
+    safeStripShow();
     lastTime = millis();
   }
 }
@@ -429,7 +429,7 @@ void comet() {
       strip.setPixelColor(i, strip.ColorHSV(62622, 242, brightness));
     }
     lastTime = millis();
-    strip.show();
+    safeStripShow();
     lastLed = (lastLed + 1) % LED_COUNT;
   }
 }
@@ -462,7 +462,7 @@ void liquidPlasma() {
       strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue, 255, pixelBrightness)));
     }
 
-    strip.show();
+    safeStripShow();
     lastTime = millis();
 
     // 5. Рухаємо анімацію далі (змінюючи ці числа, можна міняти характер ефекту)
@@ -486,7 +486,7 @@ void randCircling() {
     }
 
     lastTime = millis();
-    strip.show();
+    safeStripShow();
     lastLed = (lastLed + 1) % LED_COUNT;
   }
 }
@@ -515,7 +515,7 @@ if(millis() - lastTime > ColorTransTime/20){
   strip.fill(strip.ColorHSV(color, 150, (globalBrightness*0.9)));
   lastTime = millis();
   color += 10;
-  strip.show();
+  safeStripShow();
   }
 }
 
@@ -605,7 +605,7 @@ void Click3() {
   TelnetPrint(msg);
   TelnetPrint("third button clicked");
   strip.setPixelColor(6, strip.gamma32(strip.ColorHSV(65536 / 2, 242, 100)));
-  strip.show();
+  safeStripShow();
 }
 
 void Click4() {
@@ -634,7 +634,7 @@ void Click4() {
 
   TelnetPrint(msg);
   strip.setPixelColor(4, strip.gamma32(strip.ColorHSV(0)));
-  strip.show();
+  safeStripShow();
   TelnetPrint("fourth button clicked");
 }
 
