@@ -40,8 +40,11 @@ uint8_t globalR = 10;
 uint8_t globalG = 10;
 uint8_t globalB = 10;
 
+int CurrentMotorPower;
+
 uint32_t globalTimer;
 
+bool redrawMode = true;
 
 bool modeIsShowing = false;
 
@@ -86,6 +89,9 @@ void setup() {
 
 
   delay(1000);
+
+  pinMode(bzz_pin, OUTPUT);
+  analogWrite(bzz_pin, 0);
 
   Serial.begin(115200);
   Serial.println("Booting");
@@ -150,9 +156,10 @@ void setup() {
 }
 
 void TelnetPrint(String text) {
-  Serial.print(text);  // alway in ph port
+  Serial.println(text);  // always in ph port
   if (telnetClient && telnetClient.connected()) {
     telnetClient.println(text);  // to the air
+    yield();
   }
 }
 
@@ -174,73 +181,80 @@ void loop() {
       WiFiClient extraClient = telnetServer.available();
       extraClient.stop();
     }
+
   }
 
+
+bool commandReceived = false;
+  
   // telnet -> serial
-  if (telnetClient && telnetClient.connected() && telnetClient.available()) {
+  if (telnetClient && telnetClient.connected()) {
     while (telnetClient.available()) {
-      // Serial.write(telnetClient.read());
       char c = telnetClient.read();
       Serial.write(c);
       if (c == '\n' || c == '\r') {
-        telnetBuffer.trim();
-        if (telnetBuffer.length() > 0) {
-
-          if (telnetBuffer == "time") {
-            String msg = "Uptime: " + String(millis() / 1000) + " seconds ";
-            TelnetPrint(msg);
-          }
-          if (telnetBuffer == "c1") {
-            Click1();
-          }
-          if (telnetBuffer == "c2") {
-            Click2();
-          }
-          if (telnetBuffer == "c3") {
-            Click3();
-          }
-          if (telnetBuffer == "c4") {
-            Click4();
-          }
-          if (telnetBuffer == "mode") {
-            String msg = "current mode: " + String(mode);
-            TelnetPrint(msg);
-          }
-
-          if (telnetBuffer == "lp3") {
-            DuringLongPressB3();
-          }
-
-          if (telnetBuffer == "lp4") {
-            DuringLongPressB4();
-          }
-
-          telnetBuffer = "";
-        }
+        commandReceived = true;
+        break; 
       } else {
         telnetBuffer += c;
       }
-    }
-  }
+      yield();
+    } 
 
+    if (commandReceived) {
+      if (telnetBuffer.length() > 0) {
+        telnetBuffer.trim();
+
+        if (telnetBuffer.startsWith("bzz ")) {
+          int power = 0;
+          int time = 0;
+          if (sscanf(telnetBuffer.c_str(), "bzz %d %d", &power, &time) == 2) {
+            bzzSet(power, time);
+            String msg = "running motor from telnet cmd   Power= " + String(power) + " Time= " + String(time);
+            TelnetPrint(msg);
+          } else {
+            TelnetPrint("error! usage bzz power(<1023) time(ms) ");
+          }
+        }
+        else if (telnetBuffer == "time") {
+          TelnetPrint("Uptime: " + String(millis() / 1000) + " seconds ");
+        }
+        else if (telnetBuffer == "help")  { TelnetPrint("c(1,2,3,4); lp(3/4); mode ; bzz ") ;}
+        else if (telnetBuffer == "c1")    { Click1(); }
+        else if (telnetBuffer == "c2")    { Click2(); }
+        else if (telnetBuffer == "c3")    { Click3(); }
+        else if (telnetBuffer == "c4")    { Click4(); }
+        else if (telnetBuffer == "mode")  { TelnetPrint("current mode: " + String(mode)); }
+        else if (telnetBuffer == "lp3")   { DuringLongPressB3(); }
+        else if (telnetBuffer == "lp4")   { DuringLongPressB4(); }
+
+        telnetBuffer = ""; 
+      }
+    }
+  } 
 
   // serial -> telnet
   while (Serial.available()) {
     char c = Serial.read();
     if (telnetClient && telnetClient.connected()) {
       telnetClient.write(c);
+      yield();
     }
   }
 
   if (modeIsShowing == 1) {
-
-    strip.clear();
-    strip.setPixelColor(mode, strip.Color(100, 100, 0));
-    strip.show();
+    if(redrawMode){
+      strip.clear();
+      strip.setPixelColor(mode, strip.Color(100, 100, 0));
+      safeStripShow();
+      redrawMode = 0;
+    }
     if (millis() - globalTimer > 500) {
       modeIsShowing = 0;
+      ledUpdate = true;
     }
   }
+
   if (ledUpdate == true && modeIsShowing == 0) {
     switch (mode) {
       case 0:
@@ -275,6 +289,10 @@ void loop() {
   else if (mode == 6) {
     liquidPlasma();
   }
+  
+  else if (mode == 7) {
+    fullRainbow();
+  }
 
 
 
@@ -286,7 +304,11 @@ void loop() {
   bzzCheck();
 
   delay(1);
-}
+  
+  }
+
+
+
 
 
 
@@ -401,7 +423,7 @@ void comet() {
 
       int distance = (lastLed - i + LED_COUNT) % LED_COUNT;
       int brightness = 255 - (distance * (255 / LED_COUNT)) - (255 - globalBrightness)  ;
-      TelnetPrint(String(brightness));
+      // TelnetPrint(String(brightness));
       if (brightness < 0) { brightness = 0; }
 
       strip.setPixelColor(i, strip.ColorHSV(62622, 242, brightness));
@@ -482,6 +504,20 @@ int8_t randomRGBBrightCorrected() {
   }
 }
 
+void fullRainbow(){
+
+  if (modeIsShowing == 1) {
+    return;
+}
+static uint16_t color = 0; 
+static uint32_t lastTime = millis();
+if(millis() - lastTime > ColorTransTime/20){
+  strip.fill(strip.ColorHSV(color, 150, (globalBrightness*0.9)));
+  lastTime = millis();
+  color += 10;
+  strip.show();
+  }
+}
 
 void bzzSet(int power, int time){
   if(bzzStatus == 1 ){
@@ -490,14 +526,15 @@ void bzzSet(int power, int time){
   bzzWorkTime = time;
   bzzStartTime = millis();
   bzzStatus = 1;
-  analogWrite(bzzPin, power);
+  CurrentMotorPower = power;
+  analogWrite(bzz_pin, power);
   TelnetPrint("motor started"); 
 } 
 
 void bzzCheck(){
   if(bzzStatus){
     if(millis() - bzzStartTime >= bzzWorkTime){
-      analogWrite(bzzPin, 0);
+      analogWrite(bzz_pin, 0);
       TelnetPrint("motor stopped");
       bzzStatus = 0;
 
@@ -511,37 +548,37 @@ void bzzCheck(){
 
 
 void Click1() {
-  TelnetPrint("first button clicked, mode ++");
-  if (mode >= 7) {
-    mode = 7;
-    TelnetPrint("!there is no more modes");
-  } else {
-    mode++;
-    ledUpdate = true;
-  }
+  TelnetPrint("first button clicked, mode --");
+  bzzSet(100, 50);
+
+  mode = ((mode - 1 )% 10  + 10) % 10; 
+  
   String msg = "now is mode: " + String(mode);
   TelnetPrint(msg);
   globalTimer = millis();
   modeIsShowing = 1;
+  ledUpdate = true;
+  redrawMode = 1;
 }
 
 
 void Click2() {
-  TelnetPrint("second button clicked, mode -- ");
-  if (mode <= 0) {
-    mode = 0;
-    TelnetPrint("!mode is already lowest");
-  } else {
-    mode--;
-    ledUpdate = true;
-  }
+  bzzSet(100, 100);
+  TelnetPrint("second button clicked, mode ++ ");
+
+  mode = ((mode + 1 )% 10  + 10) % 10;
+
   String msg = "now is mode: " + String(mode);
   TelnetPrint(msg);
   globalTimer = millis();
   modeIsShowing = 1;
+  redrawMode = 1;
+  ledUpdate = true;
+
 }
 
 void Click3() {
+  bzzSet(100, 100);
   switch (mode) {
     case 0:
       globalR -= 10;
@@ -572,6 +609,7 @@ void Click3() {
 }
 
 void Click4() {
+  bzzSet(100, 100);
   switch (mode) {
     case 0:
       globalR += 10;
@@ -606,6 +644,8 @@ void DuringLongPressB4() {
   globalBrightness += 5;
   String msg = "now brihtness  is: " + String(globalBrightness);
   TelnetPrint(msg);
+  bzzSet(100, 10);
+
 }
 
 void DuringLongPressB3() {
@@ -613,4 +653,18 @@ void DuringLongPressB3() {
   globalBrightness -= 5;
   String msg = "now brihtness  is: " + String(globalBrightness);
   TelnetPrint(msg);
+  bzzSet(100, 15);
+
+}
+
+void safeStripShow(){
+  if(bzzStatus){
+    analogWrite(bzz_pin, 0);
+  }
+  strip.show();
+  
+  if(bzzStatus){
+    analogWrite(bzz_pin, CurrentMotorPower);
+  }
+
 }
